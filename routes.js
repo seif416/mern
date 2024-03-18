@@ -95,15 +95,15 @@ router.post('/donate', async (req, res) => {
 });
 
 // Home Page Endpoint
-router.get('/', async (req, res) => {
+router.get('/login/home', async (req, res) => {
   try {
     // Fetch all donated medicines from the database
-    const donatedMedicines = await Medicine.find();
-
+    const donatedMedicines = await Medicine.find({});
+    res.json(donatedMedicines);
     // Render the home page template and pass the donated medicines data to it
-    res.render('home', { donatedMedicines });
+    //res.render('home', { donatedMedicines });
   } catch (error) {
-    console.error('Error fetching donated medicines:', error);
+    console.error('Error fetching donated medicines:', error.message);
     res.status(500).json({ error: 'Failed to fetch donated medicines' });
   }
 });
