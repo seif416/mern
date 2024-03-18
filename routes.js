@@ -72,35 +72,29 @@ router.post('/login', async (req, res) => {
 // Donation Endpoint
 router.post('/donate', async (req, res) => {
   try {
-    const { name, exp_date, address, phone, photo, description } = req.body;
-    
-    // Check if required fields are provided
-    if (!name || !exp_date || !address || !phone || !photo || !description) {
-      return res.status(400).json({ error: 'All fields are required' });
-    }
+    const { medicinename, exp_date, address, phone, photo, description } = req.body;
 
     // Create new medicine document
     const medicine = new Medicine({
-      name,
+      medicinename,
       exp_date,
       address,
       phone,
       photo,
       description,
     });
-    
+
     // Save medicine document to the database
     await medicine.save();
 
-    // Redirect to the home page after donating
-    res.redirect('/');
+    res.status(201).json({ message: 'Medicine donated successfully' });
   } catch (error) {
     console.error('Error donating medicine:', error);
     res.status(500).json({ error: 'Failed to donate medicine' });
   }
 });
 
-// Home Page Route
+// Home Page Endpoint
 router.get('/', async (req, res) => {
   try {
     // Fetch all donated medicines from the database
@@ -113,6 +107,10 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch donated medicines' });
   }
 });
+
+
+
+
 
 
 // Deletion Endpoint
