@@ -5,15 +5,17 @@ const Medicine = require('./medicine.js');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
-const dotenv = require('dotenv')
+const dotenv = require('dotenv');
+const cors = require('cors');
 
 
 router.use(express.json());
 router.use(bodyParser.json());
+router.use(cors());
 
 
 
-// Registration endpoint
+// Registration endpoint  
 router.post('/signup', async (req, res) => {
   try {
     // Validate incoming data
