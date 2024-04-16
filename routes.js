@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('./user.js');
 const Medicine = require('./medicine.js');
+const Feedback = require('./feedback.js');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
@@ -74,7 +75,12 @@ router.post('/login', async (req, res) => {
 // Donation Endpoint
 router.post('/donate', async (req, res) => {
   try {
-    const { medicinename, exp_date, address, phone, photo, description } = req.body;
+    const { medicinename, exp_date, address, phone, photo, description} = req.body;
+
+    // Check if all required fields are provided
+    if (!medicinename || !exp_date || !address || !phone || !photo || !description) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
 
     // Create new medicine document
     const medicine = new Medicine({
@@ -83,7 +89,7 @@ router.post('/donate', async (req, res) => {
       address,
       phone,
       photo,
-      description,
+      description
     });
 
     // Save medicine document to the database
@@ -103,15 +109,26 @@ router.get('/login/home', async (req, res) => {
     const donatedMedicines = await Medicine.find({});
     res.json(donatedMedicines);
     // Render the home page template and pass the donated medicines data to it
-    //res.render('home', { donatedMedicines });
+    // res.render('home', { donatedMedicines });
   } catch (error) {
     console.error('Error fetching donated medicines:', error.message);
     res.status(500).json({ error: 'Failed to fetch donated medicines' });
   }
 });
 
+// Collect Medicine Endpoint
+router.get('/collect-medicine/:address', async (req, res) => {
+  const address = req.params.address;
 
-
+  try {
+    // Fetch donated medicines based on the provided address
+    const donatedMedicines = await Medicine.find({address});
+    res.json(donatedMedicines);
+  } catch (error) {
+    console.error('Error fetching donated medicines:', error.message);
+    res.status(500).json({ error: 'Failed to fetch donated medicines' });
+  }
+});
 
 
 
@@ -148,21 +165,55 @@ router.get('/request/:medicinename', async (req, res) => {
 
 
 
-// Dummy medicine data
-const medicines = [
-  "Aspirin",
-  "Acetaminophen",
-  "Amoxicillin",
-  "Albuterol",
-  "Atorvastatin",
-  // Add more medicines as needed
-];
 
-// Endpoint to search for medicines by first letter
-router.get('/api/medicines/:letter', (req, res) => {
-  const letter = req.params.letter.toUpperCase();
-  const filteredMedicines = medicines.filter(medicine => medicine.startsWith(letter));
-  res.json(filteredMedicines);
+
+
+// Endpoint for auto-complete
+router.get('/autocomplete/:query', async (req, res) => {
+  try {
+      const query = req.params.query.toLowerCase();
+      // Find medicines that match the partial input query
+      const autoCompleteResults = await Medicine.find({ medicinename: { $regex: new RegExp(query, 'i') } });
+      res.json({ suggestions: autoCompleteResults.map(medicine => medicine.medicinename) });
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// POST endpoint for submitting feedback
+router.post('/feedback', async (req, res) => {
+  try {
+    const { userId, ratedUserId, rating} = req.body;
+    
+    // Create new feedback instance
+    const feedback = new Feedback({
+      userId,
+      ratedUserId,
+      rating
+    });
+
+    // Save the feedback to the database
+    await feedback.save();
+
+    res.status(201).json({ message: 'Feedback submitted successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error submitting feedback.' });
+  }
+});
+
+// Get Feedback by User ID
+router.get('/api/feedback/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const feedback = await Feedback.find({ ratedUserId: userId });
+    res.status(200).json(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 
