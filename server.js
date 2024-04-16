@@ -4,7 +4,7 @@ const routes = require('./routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = 'mongodb://localhost:27017/noop';
+const MONGODB_URI = 'mongodb+srv://seifadelelpop:QWEg9jGZSJeAEzQM@mernmed.d6kaain.mongodb.net/?retryWrites=true&w=majority&appName=mernmed';
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
