@@ -72,10 +72,24 @@ router.post('/login', async (req, res) => {
 
 
 
-// Donation Endpoint
-router.post('/donate', async (req, res) => {
+// Middleware to authenticate JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return res.sendStatus(401); // Unauthorized
+
+  jwt.verify(token, 'your_secret_key', (err, user) => {
+    if (err) return res.sendStatus(403); // Forbidden
+    req.user = user;
+    next(); // Proceed to the next middleware or route handler
+  });
+};
+
+// Donation Endpoint - Example using authenticateToken middleware
+router.post('/donate', authenticateToken, async (req, res) => {
   try {
-    const { medicinename, exp_date, address, phone, photo, description} = req.body;
+    const { medicinename, exp_date, address, phone, photo, description } = req.body;
+    const userId = req.user.userId; // Extract userId from authenticated user
 
     // Check if all required fields are provided
     if (!medicinename || !exp_date || !address || !phone || !photo || !description) {
@@ -89,7 +103,8 @@ router.post('/donate', async (req, res) => {
       address,
       phone,
       photo,
-      description
+      description,
+      userId // Assign the userId to the medicine
     });
 
     // Save medicine document to the database
@@ -101,6 +116,7 @@ router.post('/donate', async (req, res) => {
     res.status(500).json({ error: 'Failed to donate medicine' });
   }
 });
+
 
 // Home Page Endpoint
 router.get('/login/home', async (req, res) => {
@@ -183,10 +199,11 @@ router.get('/autocomplete/:query', async (req, res) => {
 
 
 // POST endpoint for submitting feedback
-router.post('/feedback', async (req, res) => {
+router.post('/feedback', authenticateToken, async (req, res) => {
   try {
-    const { userId, ratedUserId, rating} = req.body;
-    
+    const { ratedUserId, rating } = req.body;
+    const userId = req.user.userId; // Extract userId from authenticated user
+
     // Create new feedback instance
     const feedback = new Feedback({
       userId,
@@ -202,6 +219,7 @@ router.post('/feedback', async (req, res) => {
     res.status(500).json({ error: 'Error submitting feedback.' });
   }
 });
+
 
 // Get Feedback by User ID
 router.get('/api/feedback/:userId', async (req, res) => {
