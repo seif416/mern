@@ -11,6 +11,6 @@ mongoose.connect(MONGODB_URI)
     console.log('Connected to MongoDB');
     app.use(express.json());
     app.use('/api', routes);
-    app.listen(PORT, () => console.log('server is running on 3000'));
+    app.listen(PORT, () => console.log('https://mern-9-kciy.onrender.com'));
   })
   .catch(err => console.error('Error connecting to MongoDB:', err));

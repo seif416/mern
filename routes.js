@@ -165,19 +165,35 @@ router.delete('/delete/:medicinename', async (req, res) => {
 
 
 
-router.get('/request/:medicinename', async (req, res) => {
+router.get('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
     const medicinename = req.params.medicinename;
+    const userId = req.user.userId; // Extract userId from authenticated user
+
     const requestedMedicine = await Medicine.findOne({ medicinename });
     if (requestedMedicine) {
-      res.status(200).json(requestedMedicine);
+      // Check if the medicine is already marked as requested
+      if (requestedMedicine.requested) {
+        return res.status(400).json({ error: 'Medicine is already requested' });
+      }
+
+      // Set the requested flag to true and update the userId
+      requestedMedicine.requested = true;
+      requestedMedicine.userId = userId;
+      // Save the updated medicine to the database
+      await requestedMedicine.save();
+
+      res.status(200).json({ message: 'Medicine requested successfully', requestedMedicine });
     } else {
       res.status(404).json({ error: 'Medicine not found' });
     }
   } catch (error) {
+    console.error('Error requesting medicine:', error);
     res.status(500).json({ error: 'Failed to request medicine' });
   }
 });
+
+
 
 
 
@@ -237,4 +253,51 @@ router.get('/api/feedback/:userId', async (req, res) => {
 
 
 
+
+// Endpoint for retrieving user profile by ID
+router.get('/profile/:id', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Fetch feedback for the user
+    const feedback = await Feedback.find({ ratedUserId: userId });
+    let totalRating = 0;
+    if (feedback.length > 0) {
+      // Calculate average rating
+      totalRating = feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length;
+    }
+
+    // Fetch donated medicines by the user
+    const donatedMedicines = await Medicine.find({ userId });
+
+    // Check if there are requested medicines for the user
+    let requestedMedicines = [];
+    const userRequestedMedicines = await Medicine.find({ address: user.address, requested: true });
+    if (userRequestedMedicines.length > 0) {
+      requestedMedicines = userRequestedMedicines;
+    }
+
+    // Include rating, donated medicines, and requested medicines in the response
+    const { name, address, phone } = user;
+    const profileData = { name, address, phone, rating: totalRating, donatedMedicines };
+    res.json(profileData);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
+
 module.exports = router;
+
+
+
+
+
