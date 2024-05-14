@@ -17,6 +17,9 @@ const feedbackSchema = new mongoose.Schema({
     required: true,
     min: 1,
     max: 5
+  },
+  comment: {
+    type: String // Assuming the comment is a text field
   }
 });
 

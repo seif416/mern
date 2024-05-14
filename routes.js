@@ -8,6 +8,7 @@ const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const Request = require('./request.js');
 
 
 router.use(express.json());
@@ -118,6 +119,48 @@ router.post('/donate', authenticateToken, async (req, res) => {
 });
 
 
+
+
+router.post('/request/:medicinename', authenticateToken, async (req, res) => {
+  try {
+    const { medicinename } = req.params;
+    const userId = req.user.userId; // Extract userId from authenticated user
+    const { address, phone, photo, description } = req.body;
+
+    // Check if the medicine is already requested
+    const existingRequest = await Request.findOne({ medicinename, userId });
+    if (existingRequest) {
+      return res.status(400).json({ error: 'Medicine is already requested' });
+    }
+
+    // Create new request instance
+    const newRequest = new Request({
+      medicinename,
+      userId,
+      address,
+      phone,
+      photo,
+      description,
+      requested: true
+    });
+
+    // Save the request to the database
+    await newRequest.save();
+
+    res.status(200).json({ message: 'Medicine requested successfully', newRequest });
+  } catch (error) {
+    console.error('Error requesting medicine:', error);
+    res.status(500).json({ error: 'Failed to request medicine' });
+  }
+});
+
+
+
+
+
+
+
+
 // Home Page Endpoint
 router.get('/login/home', async (req, res) => {
   try {
@@ -165,37 +208,6 @@ router.delete('/delete/:medicinename', async (req, res) => {
 
 
 
-router.get('/request/:medicinename', authenticateToken, async (req, res) => {
-  try {
-    const medicinename = req.params.medicinename;
-    const userId = req.user.userId; // Extract userId from authenticated user
-
-    const requestedMedicine = await Medicine.findOne({ medicinename });
-    if (requestedMedicine) {
-      // Check if the medicine is already marked as requested
-      if (requestedMedicine.requested) {
-        return res.status(400).json({ error: 'Medicine is already requested' });
-      }
-
-      // Set the requested flag to true and update the userId
-      requestedMedicine.requested = true;
-      requestedMedicine.userId = userId;
-      // Save the updated medicine to the database
-      await requestedMedicine.save();
-
-      res.status(200).json({ message: 'Medicine requested successfully', requestedMedicine });
-    } else {
-      res.status(404).json({ error: 'Medicine not found' });
-    }
-  } catch (error) {
-    console.error('Error requesting medicine:', error);
-    res.status(500).json({ error: 'Failed to request medicine' });
-  }
-});
-
-
-
-
 
 
 
@@ -217,14 +229,15 @@ router.get('/autocomplete/:query', async (req, res) => {
 // POST endpoint for submitting feedback
 router.post('/feedback', authenticateToken, async (req, res) => {
   try {
-    const { ratedUserId, rating } = req.body;
+    const { ratedUserId, rating, comment } = req.body;
     const userId = req.user.userId; // Extract userId from authenticated user
 
     // Create new feedback instance
     const feedback = new Feedback({
       userId,
       ratedUserId,
-      rating
+      rating,
+      comment // Include comment in the feedback object
     });
 
     // Save the feedback to the database
@@ -237,60 +250,50 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 });
 
 
-// Get Feedback by User ID
-router.get('/api/feedback/:userId', async (req, res) => {
-  const { userId } = req.params;
 
+
+
+
+// Endpoint for retrieving user profile
+router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const feedback = await Feedback.find({ ratedUserId: userId });
-    res.status(200).json(feedback);
-  } catch (error) {
-    console.error('Error fetching feedback:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+    const userId = req.user.userId; // Extract userId from authenticated user
 
-
-
-
-
-// Endpoint for retrieving user profile by ID
-router.get('/profile/:id', async (req, res) => {
-  const userId = req.params.id;
-
-  try {
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Fetch feedback for the user
-    const feedback = await Feedback.find({ ratedUserId: userId });
-    let totalRating = 0;
-    if (feedback.length > 0) {
-      // Calculate average rating
-      totalRating = feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length;
-    }
+    const feedback = await Feedback.find({ ratedUserId: userId }).populate('userId', 'name'); // Populate user details for each feedback
+    const totalRating = feedback.length > 0 ? feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length : 0;
 
     // Fetch donated medicines by the user
     const donatedMedicines = await Medicine.find({ userId });
 
-    // Check if there are requested medicines for the user
-    let requestedMedicines = [];
-    const userRequestedMedicines = await Medicine.find({ address: user.address, requested: true });
-    if (userRequestedMedicines.length > 0) {
-      requestedMedicines = userRequestedMedicines;
-    }
+    // Fetch requested medicines for the user
+    const requestedMedicines = await Request.find({ userId });
 
-    // Include rating, donated medicines, and requested medicines in the response
+    // Include user profile, rating, donated medicines, requested medicines, and feedback with comments in the response
     const { name, address, phone } = user;
-    const profileData = { name, address, phone, rating: totalRating, donatedMedicines };
+    const profileData = {
+      name,
+      address,
+      phone,
+      rating: totalRating,
+      feedbackwithcomments: feedback ,// Include feedback with comments in the profile data
+      donatedMedicines,
+      requestedMedicines,
+    };
     res.json(profileData);
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+
 
 
 
