@@ -161,19 +161,31 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
 
 
 
-// Home Page Endpoint
+// Home Page Endpoint with Donor Names
 router.get('/login/home', async (req, res) => {
   try {
-    // Fetch all donated medicines from the database
-    const donatedMedicines = await Medicine.find({});
-    res.json(donatedMedicines);
-    // Render the home page template and pass the donated medicines data to it
-    // res.render('home', { donatedMedicines });
+    // Fetch all donated medicines with donor names from the database
+    const donatedMedicines = await Medicine.find({}).populate('userId', 'name');
+    
+    // Extract relevant information for the response
+    const formattedMedicines = donatedMedicines.map(medicine => ({
+      donorName: medicine.userId ? medicine.userId.name : 'Unknown Donor', // Handle null references
+      medicinename: medicine.medicinename,
+      exp_date: medicine.exp_date,
+      address: medicine.address,
+      phone: medicine.phone,
+      photo: medicine.photo,
+      description: medicine.description
+    }));
+
+    res.json(formattedMedicines);
   } catch (error) {
-    console.error('Error fetching donated medicines:', error.message);
-    res.status(500).json({ error: 'Failed to fetch donated medicines' });
+    console.error('Error fetching donated medicines with donor names:', error.message);
+    res.status(500).json({ error: 'Failed to fetch donated medicines with donor names', details: error.message });
   }
 });
+
+
 
 // Collect Medicine Endpoint
 router.get('/collect-medicine/:address', async (req, res) => {
@@ -253,26 +265,26 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 
 
 
-
 // Endpoint for retrieving user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId; // Extract userId from authenticated user
 
+    // Fetch user profile
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Fetch feedback for the user
-    const feedback = await Feedback.find({ ratedUserId: userId }).populate('userId', 'name'); // Populate user details for each feedback
+    const feedback = await Feedback.find({ ratedUserId: userId }).select('rating comment');
     const totalRating = feedback.length > 0 ? feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length : 0;
 
-    // Fetch donated medicines by the user
-    const donatedMedicines = await Medicine.find({ userId });
+    // Fetch donated medicines by the user (only select name field)
+    const donatedMedicines = await Medicine.find({ userId }).select('medicinename');
 
-    // Fetch requested medicines for the user
-    const requestedMedicines = await Request.find({ userId });
+    // Fetch requested medicines for the user (only select name field)
+    const requestedMedicines = await Request.find({ userId }).select('medicinename');
 
     // Include user profile, rating, donated medicines, requested medicines, and feedback with comments in the response
     const { name, address, phone } = user;
@@ -281,16 +293,18 @@ router.get('/profile', authenticateToken, async (req, res) => {
       address,
       phone,
       rating: totalRating,
-      feedbackwithcomments: feedback ,// Include feedback with comments in the profile data
-      donatedMedicines,
-      requestedMedicines,
+      feedback: feedback.map(item => ({ rating: item.rating, comment: item.comment })),
+      donatedMedicines: donatedMedicines.map(item => item.medicinename), // Include only medicine names
+      requestedMedicines: requestedMedicines.map(item => item.medicinename), // Include only medicine names
     };
+
     res.json(profileData);
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 
 
