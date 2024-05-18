@@ -161,14 +161,15 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
 
 
 
-// Home Page Endpoint with Donor Names
+// Home Page Endpoint with Donor Names and IDs
 router.get('/login/home', async (req, res) => {
   try {
-    // Fetch all donated medicines with donor names from the database
-    const donatedMedicines = await Medicine.find({}).populate('userId', 'name');
+    // Fetch all donated medicines with donor names and IDs from the database
+    const donatedMedicines = await Medicine.find({}).populate('userId', 'name _id'); // Include userId in the population
     
     // Extract relevant information for the response
     const formattedMedicines = donatedMedicines.map(medicine => ({
+      donorId: medicine.userId ? medicine.userId._id : 'Unknown ID', // Include donor ID
       donorName: medicine.userId ? medicine.userId.name : 'Unknown Donor', // Handle null references
       medicinename: medicine.medicinename,
       exp_date: medicine.exp_date,
@@ -180,10 +181,11 @@ router.get('/login/home', async (req, res) => {
 
     res.json(formattedMedicines);
   } catch (error) {
-    console.error('Error fetching donated medicines with donor names:', error.message);
-    res.status(500).json({ error: 'Failed to fetch donated medicines with donor names', details: error.message });
+    console.error('Error fetching donated medicines with donor names and IDs:', error.message);
+    res.status(500).json({ error: 'Failed to fetch donated medicines with donor names and IDs', details: error.message });
   }
 });
+
 
 
 
@@ -265,6 +267,9 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 
 
 
+
+
+
 // Endpoint for retrieving user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
@@ -304,6 +309,52 @@ router.get('/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+
+
+
+
+// Endpoint for retrieving user profile by ID
+router.get('/profile/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.id; // Extract userId from the URL parameter
+
+    // Fetch user profile by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Fetch feedback for the user
+    const feedback = await Feedback.find({ ratedUserId: userId }).select('rating comment');
+    const totalRating = feedback.length > 0 ? feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length : 0;
+
+    // Fetch donated medicines by the user (only select name field)
+    const donatedMedicines = await Medicine.find({ userId }).select('medicinename');
+
+    // Fetch requested medicines for the user (only select name field)
+    const requestedMedicines = await Request.find({ userId }).select('medicinename');
+
+    // Include user profile, rating, donated medicines, requested medicines, and feedback with comments in the response
+    const { name, address, phone } = user;
+    const profileData = {
+      name,
+      address,
+      phone,
+      rating: totalRating,
+      feedback: feedback.map(item => ({ rating: item.rating, comment: item.comment })),
+      donatedMedicines: donatedMedicines.map(item => item.medicinename), // Include only medicine names
+      requestedMedicines: requestedMedicines.map(item => item.medicinename), // Include only medicine names
+    };
+
+    res.json(profileData);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 
 
