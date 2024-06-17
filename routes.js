@@ -193,6 +193,21 @@ router.get('/login/home', async (req, res) => {
 
 
 
+// Get all medicine requests endpoint
+router.get('/requests', authenticateToken, async (req, res) => {
+  try {
+    // Fetch all medicine requests from the database
+    const requests = await Request.find({}).populate('userId', 'name email'); // Populate user details if needed
+
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error('Error fetching medicine requests:', error);
+    res.status(500).json({ error: 'Failed to fetch medicine requests' });
+  }
+});
+
+
+
 
 // Collect Medicine Endpoint
 router.get('/collect-medicine/:address', async (req, res) => {
