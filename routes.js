@@ -284,6 +284,45 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 });
 
 
+// Endpoint for retrieving user profile
+router.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId; // Extract userId from authenticated user
+
+    // Fetch user profile
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Fetch feedback for the user
+    const feedback = await Feedback.find({ ratedUserId: userId }).select('rating comment');
+    const totalRating = feedback.length > 0 ? feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length : 0;
+
+    // Fetch donated medicines by the user (only select name field)
+    const donatedMedicines = await Medicine.find({ userId }).select('medicinename');
+
+    // Fetch requested medicines for the user (only select name field)
+    const requestedMedicines = await Request.find({ userId }).select('medicinename');
+
+    // Include user profile, rating, donated medicines, requested medicines, and feedback with comments in the response
+    const { name, address, phone } = user;
+    const profileData = {
+      name,
+      address,
+      phone,
+      rating: totalRating,
+      feedback: feedback.map(item => ({ rating: item.rating, comment: item.comment })),
+      donatedMedicines: donatedMedicines.map(item => item.medicinename), // Include only medicine names
+      requestedMedicines: requestedMedicines.map(item => item.medicinename), // Include only medicine names
+    };
+    res.json(profileData);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 
 
@@ -331,24 +370,6 @@ router.get('/profile/:id', authenticateToken, async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-// Get all users endpoint
-router.get('/users', authenticateToken, async (req, res) => {
-  try {
-    // Fetch all users from the database
-    const users = await User.find({}, 'name email address phone'); // Select only required fields
-
-    res.status(200).json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
 
 
 
