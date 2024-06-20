@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 
-// Define schema for requested medicines
-const RequestSchema = new mongoose.Schema({
+const requestSchema = new mongoose.Schema({
   medicinename: { type: String, required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the User model
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  address: { type: String, required: true },
+  phone: { type: String, required: true },
+  photo: { type: String, required: true },
+  description: { type: String, required: true },
   requested: { type: Boolean, default: false },
-  requestedAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now } // Add this field if not already present
 });
 
-// Create model for requested medicines
-const Request = mongoose.model('Request', RequestSchema);
-
-module.exports = Request;
+module.exports = mongoose.model('Request', requestSchema);

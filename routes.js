@@ -127,11 +127,26 @@ router.post('/donate', authenticateToken, async (req, res) => {
 
 
 
+const Notification = require('./notification.js');
+
 router.post('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
     const { medicinename } = req.params;
     const userId = req.user.userId; // Extract userId from authenticated user
     const { address, phone, photo, description } = req.body;
+
+    // Check if the user has already requested 3 medicines in the last week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const recentRequestsCount = await Request.countDocuments({
+      userId,
+      createdAt: { $gte: oneWeekAgo }
+    });
+
+    if (recentRequestsCount >= 3) {
+      return res.status(400).json({ error: 'You can only request up to 3 medicines per week.' });
+    }
 
     // Check if the medicine is already requested
     const existingRequest = await Request.findOne({ medicinename, userId });
@@ -163,7 +178,7 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     // Save notification for the donor
     const donorNotification = new Notification({
       userId: donorId,
-      message:`You have a new request for the medicine: ${medicinename}.`
+      message: `You have a new request for the medicine: ${medicinename}.`
     });
 
     await donorNotification.save();
