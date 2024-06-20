@@ -9,6 +9,7 @@ const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const Request = require('./request.js');
+const Notification = require('./notification.js');
 
 
 dotenv.config();
@@ -138,6 +139,13 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Medicine is already requested' });
     }
 
+    // Find the donor's email
+    const donorMedicine = await Medicine.findOne({ medicinename }).populate('userId');
+    if (!donorMedicine) {
+      return res.status(404).json({ error: 'Medicine not found' });
+    }
+    const donorId = donorMedicine.userId._id;
+
     // Create new request instance
     const newRequest = new Request({
       medicinename,
@@ -152,10 +160,41 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     // Save the request to the database
     await newRequest.save();
 
+    // Save notification for the donor
+    const donorNotification = new Notification({
+      userId: donorId,
+      message:`You have a new request for the medicine: ${medicinename}.`
+    });
+
+    await donorNotification.save();
+
+    // Save notification for the requester
+    const requesterNotification = new Notification({
+      userId,
+      message: `Your request for the medicine: ${medicinename} has been submitted.`
+    });
+
+    await requesterNotification.save();
+
     res.status(200).json({ message: 'Medicine requested successfully', newRequest });
   } catch (error) {
     console.error('Error requesting medicine:', error);
     res.status(500).json({ error: 'Failed to request medicine' });
+  }
+});
+
+
+router.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Fetch notifications for the user
+    const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+
+    res.status(200).json(notifications);
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
   }
 });
 
