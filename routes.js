@@ -127,7 +127,6 @@ router.post('/donate', authenticateToken, async (req, res) => {
 
 
 
-const Notification = require('./notification.js');
 
 router.post('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
