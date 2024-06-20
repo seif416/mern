@@ -12,6 +12,7 @@ const Request = require('./request.js');
 const Notification = require('./notification.js');
 
 
+
 dotenv.config();
 
 
@@ -95,11 +96,11 @@ const authenticateToken = (req, res, next) => {
 // Donation Endpoint - Example using authenticateToken middleware
 router.post('/donate', authenticateToken, async (req, res) => {
   try {
-    const { medicinename, exp_date, address, phone, photo, description } = req.body;
+    const { medicinename, exp_date, address, phone, description } = req.body;
     const userId = req.user.userId; // Extract userId from authenticated user
 
     // Check if all required fields are provided
-    if (!medicinename || !exp_date || !address || !phone || !photo || !description) {
+    if (!medicinename || !exp_date || !address || !phone || !description) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -109,7 +110,6 @@ router.post('/donate', authenticateToken, async (req, res) => {
       exp_date,
       address,
       phone,
-      photo,
       description,
       userId // Assign the userId to the medicine
     });
@@ -132,7 +132,7 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
     const { medicinename } = req.params;
     const userId = req.user.userId; // Extract userId from authenticated user
-    const { address, phone, photo, description } = req.body;
+    const { address, phone, description } = req.body;
 
     // Check if the user has already requested 3 medicines in the last week
     const oneWeekAgo = new Date();
@@ -166,7 +166,6 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
       userId,
       address,
       phone,
-      photo,
       description,
       requested: true
     });
@@ -233,7 +232,6 @@ router.get('/login/home', async (req, res) => {
       exp_date: medicine.exp_date,
       address: medicine.address,
       phone: medicine.phone,
-      photo: medicine.photo,
       description: medicine.description
     }));
 
@@ -258,6 +256,17 @@ router.get('/requests', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch medicine requests' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
 
 
 
