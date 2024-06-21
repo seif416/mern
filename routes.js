@@ -200,6 +200,7 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
 
 
 
+
 router.get('/notifications', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
