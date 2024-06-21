@@ -9,6 +9,11 @@ const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const Request = require('./request.js');
+const Notification = require('./notification.js');
+
+
+
+dotenv.config();
 
 
 router.use(express.json());
@@ -79,12 +84,14 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
   if (token == null) return res.sendStatus(401); // Unauthorized
 
-  jwt.verify(token, 'your_secret_key', (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'your_secret_key', (err, user) => {
     if (err) return res.sendStatus(403); // Forbidden
     req.user = user;
     next(); // Proceed to the next middleware or route handler
   });
 };
+
+
 
 // Donation Endpoint - Example using authenticateToken middleware
 router.post('/donate', authenticateToken, async (req, res) => {
@@ -120,11 +127,25 @@ router.post('/donate', authenticateToken, async (req, res) => {
 
 
 
+
 router.post('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
     const { medicinename } = req.params;
     const userId = req.user.userId; // Extract userId from authenticated user
     const { address, phone, description } = req.body;
+
+    // Check if the user has already requested 3 medicines in the last week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const recentRequestsCount = await Request.countDocuments({
+      userId,
+      createdAt: { $gte: oneWeekAgo }
+    });
+
+    if (recentRequestsCount >= 3) {
+      return res.status(400).json({ error: 'You can only request up to 3 medicines per week.' });
+    }
 
     // Check if the medicine is already requested
     const existingRequest = await Request.findOne({ medicinename, userId });
@@ -176,9 +197,6 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
 });
 
 
-
-
-
 router.get('/notifications', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -214,7 +232,6 @@ router.get('/login/home', async (req, res) => {
       exp_date: medicine.exp_date,
       address: medicine.address,
       phone: medicine.phone,
-      photo: medicine.photo,
       description: medicine.description
     }));
 
@@ -224,6 +241,32 @@ router.get('/login/home', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch donated medicines with donor names and IDs', details: error.message });
   }
 });
+
+
+
+// Get all medicine requests endpoint
+router.get('/requests', authenticateToken, async (req, res) => {
+  try {
+    // Fetch all medicine requests from the database
+    const requests = await Request.find({}).populate('userId', 'name email'); // Populate user details if needed
+
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error('Error fetching medicine requests:', error);
+    res.status(500).json({ error: 'Failed to fetch medicine requests' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -303,12 +346,6 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 });
 
 
-
-
-
-
-
-
 // Endpoint for retrieving user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
@@ -341,13 +378,14 @@ router.get('/profile', authenticateToken, async (req, res) => {
       donatedMedicines: donatedMedicines.map(item => item.medicinename), // Include only medicine names
       requestedMedicines: requestedMedicines.map(item => item.medicinename), // Include only medicine names
     };
-
     res.json(profileData);
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
 
 
 
@@ -402,4 +440,7 @@ router.get('/profile/:id', authenticateToken, async (req, res) => {
 
 
 
+
 module.exports = router;
+
+
