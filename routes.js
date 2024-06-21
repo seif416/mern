@@ -160,6 +160,12 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     }
     const donorId = donorMedicine.userId._id;
 
+    // Find the requester's details
+    const requester = await User.findById(userId);
+    if (!requester) {
+      return res.status(404).json({ error: 'Requester not found' });
+    }
+
     // Create new request instance
     const newRequest = new Request({
       medicinename,
@@ -173,10 +179,10 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     // Save the request to the database
     await newRequest.save();
 
-    // Save notification for the donor
+    // Save notification for the donor with requester details
     const donorNotification = new Notification({
       userId: donorId,
-      message: `You have a new request for the medicine: ${medicinename}.`
+      message: `You have a new request for the medicine: ${medicinename} from ${requester.name}, Address: ${requester.address}, Phone: ${requester.phone}.`
     });
 
     await donorNotification.save();
@@ -195,6 +201,14 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to request medicine' });
   }
 });
+
+
+
+
+
+
+
+
 
 
 router.get('/notifications', authenticateToken, async (req, res) => {
