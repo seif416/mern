@@ -134,11 +134,6 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const { address, phone, description } = req.body;
 
-    // Validate input
-    if (!address || !phone || !description) {
-      return res.status(400).json({ error: 'Address, phone, and description are required.' });
-    }
-
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
