@@ -132,7 +132,6 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
     const { medicinename } = req.params;
     const userId = req.user.userId; // Extract userId from authenticated user
-    const { address, phone, description } = req.body;
 
     // Check if the user has already requested 3 medicines in the last week
     const oneWeekAgo = new Date();
@@ -153,20 +152,23 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Medicine is already requested' });
     }
 
-    // Find the donor's email
+    // Find the donor's medicine and user details
     const donorMedicine = await Medicine.findOne({ medicinename }).populate('userId');
     if (!donorMedicine) {
       return res.status(404).json({ error: 'Medicine not found' });
     }
     const donorId = donorMedicine.userId._id;
 
-    // Create new request instance
+    // Find the requester's details
+    const requester = await User.findById(userId).select('name address phone');
+    if (!requester) {
+      return res.status(404).json({ error: 'Requester not found' });
+    }
+
+    // Create new request instance without address, phone, and description
     const newRequest = new Request({
       medicinename,
       userId,
-      address,
-      phone,
-      description,
       requested: true
     });
 
@@ -176,7 +178,7 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     // Save notification for the donor
     const donorNotification = new Notification({
       userId: donorId,
-      message: `You have a new request for the medicine: ${medicinename}.`
+      message: `You have a new request for the medicine: ${medicinename} from ${requester.name} (Address: ${requester.address}, Phone: ${requester.phone}).`
     });
 
     await donorNotification.save();
@@ -195,6 +197,7 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to request medicine' });
   }
 });
+
 
 
 router.get('/notifications', authenticateToken, async (req, res) => {
