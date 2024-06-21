@@ -131,13 +131,14 @@ router.post('/donate', authenticateToken, async (req, res) => {
 router.post('/request/:medicinename', authenticateToken, async (req, res) => {
   try {
     const { medicinename } = req.params;
-    const userId = req.user.userId;
-    const { address, phone, description } = req.body;
+    const userId = req.user.userId; // Extract userId from authenticated user
+    const { address, phone, photo, description } = req.body;
 
+    // Check if the user has already requested 3 medicines in the last week
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    // Check if user has reached the request limit
+    
     const recentRequestsCount = await Request.countDocuments({
       userId,
       createdAt: { $gte: oneWeekAgo }
@@ -147,49 +148,46 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'You can only request up to 3 medicines per week.' });
     }
 
-    // Check if the user has already requested this medicine
+    // Check if the medicine is already requested
     const existingRequest = await Request.findOne({ medicinename, userId });
     if (existingRequest) {
-      return res.status(400).json({ error: 'Medicine has already been requested by you.' });
+      return res.status(400).json({ error: 'Medicine is already requested' });
     }
 
-    // Find the medicine being requested
+    // Find the donor's email
     const donorMedicine = await Medicine.findOne({ medicinename }).populate('userId');
     if (!donorMedicine) {
-      return res.status(404).json({ error: 'Medicine not found.' });
+      return res.status(404).json({ error: 'Medicine not found' });
     }
     const donorId = donorMedicine.userId._id;
 
-    // Find the requester
-    const requester = await User.findById(userId);
-    if (!requester) {
-      return res.status(404).json({ error: 'Requester not found.' });
-    }
-
-    // Create a new request
+    // Create new request instance
     const newRequest = new Request({
       medicinename,
       userId,
       address,
       phone,
+      photo,
       description,
       requested: true
     });
 
+    // Save the request to the database
     await newRequest.save();
 
-    // Notify the donor
+    // Save notification for the donor
     const donorNotification = new Notification({
       userId: donorId,
-      message: `You have a new request for the medicine: ${medicinename} from ${requester.name}, Address: ${address}, Phone: ${phone}.`
+      message: `You have a new request for the medicine: ${medicinename}.`
     });
 
     await donorNotification.save();
 
-    // Notify the requester
+    // Save notification for the requester
     const requesterNotification = new Notification({
       userId,
-      message: `Your request for the medicine: ${medicinename} has been submitted.`
+      message: ` message: You have a new request for the medicine: ${medicinename} from ${requester.name}, Address: ${address}, Phone: ${phone}.
+`
     });
 
     await requesterNotification.save();
@@ -197,7 +195,7 @@ router.post('/request/:medicinename', authenticateToken, async (req, res) => {
     res.status(200).json({ message: 'Medicine requested successfully', newRequest });
   } catch (error) {
     console.error('Error requesting medicine:', error);
-    res.status(500).json({ error: 'Failed to request medicine.' });
+    res.status(500).json({ error: 'Failed to request medicine' });
   }
 });
 
